@@ -1,0 +1,7 @@
+numpy
+pandas
+sklearn
+scipy
+networkx
+argparse
+termcolor
