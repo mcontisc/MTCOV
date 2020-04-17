@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+*__pycache__
+*.py[cod]
+*$py.class
+*pyc
+*.DS_Store*
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+.idea
+# Jupyter Notebook
+.ipynb_checkpoints
