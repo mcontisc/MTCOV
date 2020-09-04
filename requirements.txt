@@ -1,6 +1,7 @@
 numpy
 pandas
 sklearn
+sktensor
 scipy
 networkx
 argparse

@@ -16,7 +16,8 @@ THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 ## Files
 - `main.py` : General version of the algorithm. It performs overlapping community detection in multilayer directed and undirected networks by combining together the topology of interactions and node attributes.
-- `MTCOV.py` : Contains the class definition of a Multilayer network with all the member functions required.
+- `MTCOV.py` : Contains the class definition of a Multilayer network with all the member functions required. This code is optimized to use sparse matrices.
+- `MTCOV_nonsparse.py` : Contains the class definition of a Multilayer network with all the member functions required. This code is not optimized to handle sparse matrices. We suggest to use it only with networks having N < 1000 nodes. This is the first version of the code.
 - `tools.py` : Contains non-class functions for handling the data.
 - `main_cv_single_real.py` : Code for performing a cross-validation procedure, in order to estimate the hyperparameters **C** and **gamma**. It runs with a given C and gamma and returns a file summarizing the results over all folds. The output file contains the value of the log-likelihood, the AUC of the link prediction and the accuracy of the attribute prediction, both in the train and in test sets.
 - `run_cv.sh` : Code for running the cross-validation procedure with a given range of C and gamma values.
@@ -39,19 +40,25 @@ It will use the sample network contained in `./data/input`. The adjacency tensor
 - **-c** : Input file name of the design matrix, *(default='X.csv')*.
 - **-o** : Name of the source of the edge, *(default='source')*.
 - **-r** : Name of the target of the edge, *(default='target')*.
+- **-x** : Name of the column with node labels, *(default='Name')*.
 - **-a** : Name of the attribute to consider in the analysis, *(default='Metadata')*.
-- **-I** : Name of the column with node labels, *(default='Name')*.
 - **-C** : Number of communities, *(default=2)*.
 - **-g** : Scaling parameter gamma, *(default=0.5)*.
 - **-u** : Flag to call the undirected network, *(default=False)*.
-- **-d** : Flag to force a dense transformation of the adjacency tensor, *(default=False)*.
-- **-z** : Seed for random real numbers, *(default=107261)*.
+- **-d** : Flag to force a dense transformation of the adjacency tensor, *(default=True)*.
+- **-F** : Flag to choose the convergence procedure, *(default='log')*. If 'log' the convergence is based on the loglikelihood values; 
+            if 'deltas' the convergence is based on the differences in the parameters values. The latter is suggested 
+            when the dataset is big (N > 1000 ca.).
+- **-z** : Seed for random real numbers. 
 - **-e** : Error for the initialization of W, *(default=0.1)*.
 - **-i** : Number of iterations with different random initialization; the final parameters will be the one corresponding to the realization leading to the max likelihood, *(default=1)*.
-- **-t** : Tolerance parameter for convergence, *(default=0.1)*.
+- **-t** : Tolerance parameter for convergence, *(default=0.0001)*.
 - **-y** : Decision variable for convergence, *(default=10)*.
 - **-m** : Maximum number of EM steps before aborting, *(default=500)*.
 - **-E** : Output file suffix, *(default='.dat')*.
+- **-I** : Path of the input folder, *(default='../data/input/')*.
+- **-O** : Path of the output folder, *(default='../data/output/test/')*.
+- **-A** : Flag to call the assortative network, *(default=False)*.
 
 ## Input format
 The multilayer network should be stored in a CSV file. An example of row is
@@ -65,13 +72,9 @@ Note: if the network is undirected, you only need to input each edge once. You t
 The design matrix should be stored in a CSV file, where one column (_Name_) indicates the node labels. 
 
 ## Output
-The MTCOV returns four files inside the `data/output` folder: the two NxC membership matrices **U** and **V**, the CxCxL affinity tensor **W** and the CxZ matrix **beta**. 
+The MTCOV returns a compressed file inside the `./data/output/test` folder. To load and print the out-going membership matrix:
 
-The first line outputs the maximum log-likelihood (*Max Likelihood*) among the different iterations performed with different random initialization (*NReal*) and the value of the *gamma* scaling parameter.
+`theta = np.load('theta_test_GT.npz')`.      
+`print(theta['u'])`
 
-For the membership files, the subsequent lines contain C+1 columns: the first one is the node label, the following ones are the membership probabilities.
-
-For the affinity tensor file, the subsequent lines start with the number of the layer and then the affinity matrix for that layer.
-
-For the beta file, the subsequent line contains the names of the modalities of the categorical attribute. Then, the following lines contain Z columns with the probabilities indicating the correlation between communities and attributes.
-
+*theta* contains the two NxC membership matrices **U** *('u')* and **V** *('v')*, the LxCxC affinity tensor **W** *('w')*, the CxZ matrix **beta** *('beta')*, the total number of iterations *('max_it')*, the nodes of the network *('nodes')*, the value of the maximum likelihood *('maxL')* and the number of realizations *('N_real')*. 

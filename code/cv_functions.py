@@ -1,15 +1,15 @@
-""" Functions for K-fold CV procedure. """
+""" Functions for C-fold CV procedure. """
 
 import numpy as np
 from sklearn import metrics
-from scipy import sparse
-import pickle
 import MTCOV as mtcov
 
-def shuffle_indicesG(N,L,rseed=10):
-    '''
-    To extract a maskG using KFold
-    '''
+
+def shuffle_indicesG(N, L, rseed=10):
+    """
+        Extract a maskG using KFold.
+    """
+
     rng = np.random.RandomState(rseed)
     idxG = []
     for a in range(L):
@@ -18,38 +18,42 @@ def shuffle_indicesG(N,L,rseed=10):
             for j in range(N):
                 idx_tmp.append((i, j))
         idxG.append(idx_tmp)
-    # idxG = rng.sample(idx, len(idx))
-    for l in range(L):rng.shuffle(idxG[l])
+    for l in range(L):
+        rng.shuffle(idxG[l])
 
     return idxG
 
-def shuffle_indicesX(N,rseed=10):
-    '''
-    To extract a maskX using KFold
-    '''
+
+def shuffle_indicesX(N, rseed=10):
+    """
+        Extract a maskX using KFold.
+    """
+
     rng = np.random.RandomState(rseed)
-    idxX = np.arange(N) 
+    idxX = np.arange(N)
     rng.shuffle(idxX)
+
     return idxX
 
-def extract_masks( N, L, idxG=None, idxX=None, cv_type='kfold', NFold=5, fold=0, rseed=10, out_mask=False):
+
+def extract_masks(N, L, idxG=None, idxX=None, cv_type='kfold', NFold=5, fold=0, rseed=10, out_mask=False):
     """
         Return the masks for selecting the held out set in the adjacency tensor and design matrix.
 
         Parameters
         ----------
-        idxG : L-dim list of lists
-              Each list has the indexes of the entries of the adjacency matrix of layer L, when cv is set to kfold.
-        idxX : list
-              List with the indexes of the entries of design matrix, when cv is set to kfold.
         N : int
             Number of nodes.
         L : int
             Number of layers.
+        idxG : L-dim list of lists
+              Each list has the indexes of the entries of the adjacency matrix of layer L, when cv is set to kfold.
+        idxX : list
+              List with the indexes of the entries of design matrix, when cv is set to kfold.
         cv_type : string
              Type of cross-validation: kfold or random.
         NFold : int
-                Number of K-fold.
+                Number of C-fold.
         fold : int
                Current fold.
         rseed : int
@@ -64,51 +68,53 @@ def extract_masks( N, L, idxG=None, idxX=None, cv_type='kfold', NFold=5, fold=0,
         maskX : ndarray
                 Mask for selecting the held out set in the design matrix.
     """
-    maskG = np.zeros((L,N,N),dtype=bool)
-    maskX = np.zeros(N,dtype=bool)
+
+    maskG = np.zeros((L, N, N), dtype=bool)
+    maskX = np.zeros(N, dtype=bool)
 
     if cv_type == 'kfold':  # sequential order of folds
         # adjacency tensor
         assert L == len(idxG)
         for l in range(L):
             n_samples = len(idxG[l])
-            test = idxG[l][fold * (n_samples // NFold):(fold + 1) * (n_samples// NFold)] 
-            for idx in test: maskG[l][idx]=1
+            test = idxG[l][fold * (n_samples // NFold):(fold + 1) * (n_samples // NFold)]
+            for idx in test: maskG[l][idx] = 1
 
         # design matrix
         testcov = idxX[fold * (N // NFold):(fold + 1) * (N // NFold)]
         maskX[testcov] = 1
 
     else:  # random split for choosing the test set
-        rng = np.random.RandomState(rseed)   # Mersenne-Twister random number generator
-        maskG = rng.binomial(1, 1./float(NFold), size=(L,N,N))
-        maskX = rng.binomial(1, 1./float(NFold), size=N)
+        rng = np.random.RandomState(rseed)  # Mersenne-Twister random number generator
+        maskG = rng.binomial(1, 1. / float(NFold), size=(L, N, N))
+        maskX = rng.binomial(1, 1. / float(NFold), size=N)
 
     if out_mask:  # output the masks into files
-        outmask = '../data/input/mask_f'+str(fold)
-        np.savez_compressed(outmask+'.npz', maskG=np.where(maskG > 0.), maskX=np.where(maskX > 0.)) # To load: mask = np.load('mask_f0.npz'), e.g. print(np.array_equal(maskG, mask['maskG']))
-        print('Masks saved in:',outmask)
-        
+        outmask = '../data/input/mask_f' + str(fold)
+        np.savez_compressed(outmask + '.npz', maskG=np.where(maskG > 0.), maskX=np.where(maskX > 0.))
+        # To load: mask = np.load('mask_f0.npz'), e.g. print(np.array_equal(maskG, mask['maskG']))
+        print('Masks saved in:', outmask)
+
     return maskG, maskX
 
-def train_running_model(A, B_cv, X_cv, u_list, v_list, N, L, C, Z, gamma=0., undirected=False, cv=False, rseed=10, inf=1e10, err_max=0.0000001, err=0.1,
-                        N_real=1, tolerance=0.1, decision=10, maxit=500, folder= '../data/output/5-fold_cv/', end_file='.csv'):
+
+def train_running_model(B_cv, X_cv, flag_conv, N, L, C, Z, gamma=0., undirected=False, cv=False, rseed=10, inf=1e10,
+                        err_max=0.0000001, err=0.1, N_real=1, tolerance=0.1, decision=10, maxit=500,
+                        folder='../data/output/5-fold_cv/', end_file='.csv', assortative=False):
     """
         Run MTCOV model on the train set and return its estimated parameters: U, V, W and beta. U and V are the
         membership matrices, W is the affinity tensor and beta measures the relation between communities and attribute.
 
         Parameters
         ----------
-        A : list
-            List of MultiGraph (or MultiDiGraph if undirected=False) NetworkX objects.
         B_cv : ndarray
                Graph adjacency tensor.
-        X_cv : DataFrame
-               Pandas DataFrame object representing the one-hot encoding version of the design matrix.
-        u_list : list
-                 List of indexes of nodes with non zero out-degree over all layers.
-        v_list : list
-                 List of indexes of nodes with non zero in-degree over all layers.
+        X_cv : ndarray
+               Object representing the one-hot encoding version of the design matrix.
+        flag_conv : str
+                    If 'log' the convergence is based on the loglikelihood values; if 'deltas' the convergence is
+                    based on the differences in the parameters values. The latter is suggested when the dataset
+                    is big (N > 1000 ca.).
         N : int
             Number of nodes.
         L : int
@@ -121,7 +127,7 @@ def train_running_model(A, B_cv, X_cv, u_list, v_list, N, L, C, Z, gamma=0., und
                 Scaling parameter gamma.
         undirected : bool
                      If set to True, the network is undirected.
-        cv_type : bool
+        cv : bool
              If set to True, it performs cross-validation procedure.
         rseed : int
                 Random seed for the initialization.
@@ -143,6 +149,8 @@ def train_running_model(A, B_cv, X_cv, u_list, v_list, N, L, C, Z, gamma=0., und
                  Path for storing the output.
         end_file : str
                    Output file suffix.
+        assortative : bool
+                      If True, the network is assortative.
 
         Returns
         -------
@@ -154,16 +162,21 @@ def train_running_model(A, B_cv, X_cv, u_list, v_list, N, L, C, Z, gamma=0., und
             Affinity tensor.
         beta : ndarray
                Beta parameter matrix.
+        maxL : float
+               Maximum log-likelihood value.
     """
 
-    MTCOV = mtcov.MultiTensorCov(N=N, L=L, C=C, Z=Z, gamma=gamma, undirected=undirected, cv=cv, rseed=rseed, inf=inf,
-                                 err_max=err_max, err=err, N_real=N_real, tolerance=tolerance, decision=decision,
-                                 maxit=maxit, folder=folder, end_file=end_file)
+    MTCOV = mtcov.MTCOV(N=N, L=L, C=C, Z=Z, gamma=gamma, undirected=undirected, cv=cv, rseed=rseed, inf=inf,
+                        err_max=err_max, err=err, N_real=N_real, tolerance=tolerance, decision=decision,
+                        maxit=maxit, folder=folder, end_file=end_file, assortative=assortative)
 
-    return MTCOV.cycle_over_realizations(A, B_cv, X_cv, u_list, v_list)
+    return MTCOV.fit(data=B_cv, data_X=X_cv, flag_conv=flag_conv, nodes=None)
 
 
 def extract_true_label(X, mask=None):
+    """
+        Extract true label from X.
+    """
     if mask is not None:
         return X.iloc[mask > 0].idxmax(axis=1).values
     else:
@@ -171,6 +184,9 @@ def extract_true_label(X, mask=None):
 
 
 def predict_label(X, u, v, beta, mask=None):
+    """
+        Compute predicted labels.
+    """
     if mask is None:
         probs = np.dot((u + v), beta) / 2
         assert (np.round(np.sum(np.sum(probs, axis=1)), 0) == u[mask > 0].shape[0])
@@ -215,7 +231,7 @@ def covariates_accuracy(X, u, v, beta, mask=None):
 
 def expected_Aija(u, v, w):
     M = np.einsum('ik,jq->ijkq', u, v)
-    M = np.einsum('ijkq,kqa->aij', M, w)
+    M = np.einsum('ijkq,akq->aij', M, w)
     return M
 
 
@@ -340,19 +356,3 @@ def loglikelihood(B, X, u, v, w, beta, gamma, maskG=None, maskX=None):
     loglik = (1 - gamma) * graph + gamma * attr
 
     return loglik
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -15,10 +15,10 @@ class Test(unittest.TestCase):
     N = 100
     L = 2
     C = 2
-    gamma = 0.5 
+    gamma = 0.5
     in_folder = '../data/input/'
     out_folder = '../data/output/test/'
-    end_file = '_test_cv'
+    end_file = '_test'
     adj_name = 'adj_cv.csv'
     cov_name = 'X_cv.csv'
     ego = 'source'
@@ -27,17 +27,26 @@ class Test(unittest.TestCase):
     attr_name = 'Metadata'
     rseed = 107261
     N_real = 1
-
-    cv_type = 'random'
+    undirected = False
+    force_dense = True
+    flag_conv = 'log'
+    err = 0.1
+    tolerance = 0.0001
+    decision = 10
+    maxit = 500
+    assortative = False
+    inf = 1e10
+    err_max = 0.0000001
+    cv_type = 'kfold'
     NFold = 5
 
     '''
     Import data
     '''
-    A, B, X, u_list, v_list = tl.import_data(in_folder, adj_name=adj_name, cov_name=cov_name, ego=ego,
-                                             alter=alter, egoX=egoX, attr_name=attr_name)
+    A, B, X, nodes = tl.import_data(in_folder, adj_name=adj_name, cov_name=cov_name, ego=ego,
+                                    alter=alter, egoX=egoX, attr_name=attr_name)
+    Xs = np.array(X)
 
-    # test case function to check the Person.get_name function
     def test_running_algorithm(self):
         print("\nStart running algorithm test\n")
 
@@ -46,8 +55,8 @@ class Test(unittest.TestCase):
         assert N == self.X.shape[0]
 
         if self.cv_type == 'kfold':
-            idxG = cvfun.shuffle_indicesG(N,L,rseed=rseed)
-            idxX = cvfun.shuffle_indicesX(N,rseed=rseed)
+            idxG = cvfun.shuffle_indicesG(N, L, rseed=self.rseed)
+            idxX = cvfun.shuffle_indicesX(N, rseed=self.rseed)
         else:
             idxG = None
             idxX = None
@@ -55,34 +64,45 @@ class Test(unittest.TestCase):
         for fold in range(self.NFold):
 
             ind = self.rseed+fold
-
-            maskG, maskX = cvfun.extract_masks(self.N,self.L,idxG=idxG, idxX=idxX, cv_type=self.cv_type, NFold=self.NFold, fold=fold, rseed=ind)
+            maskG, maskX = cvfun.extract_masks(self.A[0].number_of_nodes(), len(self.B), idxG=idxG, idxX=idxX,
+                                               cv_type=self.cv_type, NFold=self.NFold, fold=fold, rseed=ind)
 
             '''
             Set up training dataset    
-            '''            
+            '''
             B_train = self.B.copy()
-            B_train[maskG > 0] = 0 
+            print(B_train.shape, maskG.shape)
+            B_train[maskG > 0] = 0
 
-            X_train = self.X.copy()
-            X_train.iloc[maskX > 0] = 0
+            X_train = self.Xs.copy()
+            X_train[maskX > 0] = 0
 
-            U, V, W, BETA, logL = cvfun.train_running_model(self.A, B_train, X_train, self.u_list, self.v_list,
-                                                                         N=self.A[0].number_of_nodes(),
-                                                                         L=len(self.B),
-                                                                         C=self.C,
-                                                                         Z=self.X.shape[1],
-                                                                         gamma=self.gamma,
-                                                                         cv=True,
-                                                                         rseed=self.rseed,
-                                                                         N_real=self.N_real,
-                                                                         folder=self.out_folder,
-                                                                         end_file=self.end_file)
+            U, V, W, BETA, logL = cvfun.train_running_model(B_train, X_train, self.flag_conv,
+                                                            N=self.A[0].number_of_nodes(),
+                                                            L=len(self.B),
+                                                            C=self.C,
+                                                            Z=self.X.shape[1],
+                                                            gamma=self.gamma,
+                                                            undirected=self.undirected,
+                                                            cv=True,
+                                                            rseed=self.rseed,
+                                                            inf=self.inf,
+                                                            err_max=self.err_max,
+                                                            err=self.err,
+                                                            N_real=self.N_real,
+                                                            tolerance=self.tolerance,
+                                                            decision=self.decision,
+                                                            maxit=self.maxit,
+                                                            folder=self.out_folder,
+                                                            end_file=self.end_file,
+                                                            assortative=self.assortative
+                                                            )
             '''
             Output parameters
             '''
             outinference = self.out_folder+'theta_cv'+str(fold)+'C'+str(self.C)+'g'+str(self.gamma)
-            np.savez_compressed(outinference+'.npz', u=U, v=V, w=W, beta=BETA, fold=fold) # To load: theta = np.load('test.npz'), e.g. print(np.array_equal(U, theta['u']))
+            np.savez_compressed(outinference+'.npz', u=U, v=V, w=W, beta=BETA, fold=fold)
+            # To load: theta = np.load('test.npz'), e.g. print(np.array_equal(U, theta['u']))
             
             '''
             Load parameters
