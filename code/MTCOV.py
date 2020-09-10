@@ -81,6 +81,7 @@ class MTCOV:
         # pre-processing of the data to handle the sparsity
         data = preprocess(data)
         data_X = preprocess_X(data_X)
+        
         # save the indexes of the nonzero entries
         if isinstance(data, skt.dtensor):
             subs_nz = data.nonzero()
@@ -108,7 +109,7 @@ class MTCOV:
             # --- single step iteration update ---
             while not convergence and it < self.maxit:
                 # main EM update: updates memberships and calculates max difference new vs old
-                delta_u, delta_v, delta_w, delta_beta = self._update_em_compact(data, data_X, subs_nz, subs_X_nz)
+                delta_u, delta_v, delta_w, delta_beta = self._update_em(data, data_X, subs_nz, subs_X_nz)
                 if flag_conv == 'log':
                     it, loglik, coincide, convergence = self._check_for_convergence(data, data_X, it, loglik, coincide,
                                                                                 convergence)
@@ -136,7 +137,7 @@ class MTCOV:
 
         if final_it == self.maxit and not conv:
             # convergence not reaches
-            print(colored('Solution failed to converge in {0} EM steps'.format(self.maxit), 'blue'))
+            print(colored('Solution failed to converge in {0} EM steps!'.format(self.maxit), 'blue'))
 
         if self.cv:
             return self.u_f, self.v_f, self.w_f, self.beta_f, maxL
@@ -237,7 +238,7 @@ class MTCOV:
 
             Parameters
             ----------
-            data : ndarray
+            data : sptensor/dtensor
                    Graph adjacency tensor.
             subs_nz : tuple
                       Indices of elements of data that are non-zero.
@@ -317,13 +318,13 @@ class MTCOV:
         else:
             return np.einsum('Ik,kz->Iz', u[subs_X_nz[0], :] + v[subs_X_nz[0], :], beta)
 
-    def _update_em_compact(self, data, data_X, subs_nz, subs_X_nz):
+    def _update_em(self, data, data_X, subs_nz, subs_X_nz):
         """
             Update parameters via EM procedure.
 
             Parameters
             ----------
-            data : ndarray
+            data : sptensor/dtensor
                    Graph adjacency tensor.
             data_X : ndarray
                      Object representing the one-hot encoding version of the design matrix.
@@ -489,7 +490,7 @@ class MTCOV:
             Parameters
             ----------
             subs_nz : tuple
-                      Indices of elements of data_X that are non-zero.
+                      Indices of elements of data that are non-zero.
             subs_X_nz : tuple
                         Indices of elements of data_X that are non-zero.
 
@@ -523,7 +524,7 @@ class MTCOV:
             Parameters
             ----------
             subs_nz : tuple
-                      Indices of elements of data_X that are non-zero.
+                      Indices of elements of data that are non-zero.
             subs_X_nz : tuple
                         Indices of elements of data_X that are non-zero.
 
@@ -603,7 +604,7 @@ class MTCOV:
 
             Parameters
             ----------
-            data : ndarray
+            data : sptensor/dtensor
                    Graph adjacency tensor.
             data_X : ndarray
                     Object representing the one-hot encoding version of the design matrix.
@@ -647,7 +648,7 @@ class MTCOV:
 
             Parameters
             ----------
-            data : ndarray
+            data : sptensor/dtensor
                    Graph adjacency tensor.
             data_X : ndarray
                     Object representing the one-hot encoding version of the design matrix.
