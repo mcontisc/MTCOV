@@ -33,7 +33,7 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
         undirected : bool
                      If set to True, the algorithm considers an undirected graph.
         force_dense : bool
-                      If set to True, the algorithm is forced to consider a dense adjacency tensor. Default is True because current implementation is not suited to manage sparse tensors
+                      If set to True, the algorithm is forced to consider a dense adjacency tensor.
 
         Returns
         -------
@@ -48,19 +48,20 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
     """
 
     # df_adj = pd.read_csv(in_folder + adj_name, index_col=0) # read adjacency file
-    df_adj = pd.read_csv(in_folder + adj_name) # read adjacency file
+    df_adj = pd.read_csv(in_folder + adj_name)  # read adjacency file
     print('\nAdjacency shape: {0}'.format(df_adj.shape))
 
     df_X = pd.read_csv(in_folder + cov_name)  # read the csv file with the covariates
     print('Indiv shape: ', df_X.shape)
-    
-    A = read_graph(df_adj=df_adj, ego=ego, alter=alter, undirected=undirected)  # create the graph adding nodes and edges
+
+    # create the graph adding nodes and edges
+    A = read_graph(df_adj=df_adj, ego=ego, alter=alter, undirected=undirected)
     print_graph_stat(A)
 
-    N = A[0].number_of_nodes()
     nodes = list(A[0].nodes)
-    
-    B = build_B_from_A(A, force_dense=force_dense, nodes=nodes)  # save the multilayer network in a numpy tensor with all layers
+
+    # save the multilayer network in a numpy tensor with all layers
+    B = build_B_from_A(A, force_dense=force_dense, nodes=nodes)
 
     # read the design matrix with covariates
     X_attr = read_design_matrix(df_X, nodes, attribute=attr_name, ego=egoX)
@@ -98,7 +99,7 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
     nodes.sort()
 
     L = df_adj.shape[1] - 2  # number of layers
-    # build the multilayer NetworkX graph: create a list of graphs, as many graphs as there are layers.
+    # build the multilayer NetworkX graph: create a list of graphs, as many graphs as there are layers
     if undirected:
         A = [nx.MultiGraph() for _ in range(L)]
     else:
@@ -114,7 +115,7 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
         v2 = row[alter]
         for l in range(L):
             if row[l + 2] > 0:
-                if A[l].has_edge(v1,v2):
+                if A[l].has_edge(v1, v2):
                     A[l][v1][v2][0]['weight'] += int(row[l + 2])  # if the edge existed already, no parallel edges created
                 else:
                     A[l].add_edge(v1, v2, weight=int(row[l + 2]))
@@ -137,10 +138,11 @@ def build_B_from_A(A, force_dense=True, nodes=None):
             B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
         else:
             try:
-                B[l, :, :] = nx.to_scipy_sparse_matrix(A[l], dtype=int, nodelist=nodes)  #scipy.sparse.csr_matrix(B[l,:,:])
+                B[l, :, :] = nx.to_scipy_sparse_matrix(A[l], dtype=int, nodelist=nodes)  # scipy.sparse.csr_matrix(B[l,:,:])
             except:
-                print('Warning: layer ', l, ' cannot be made sparse, using a dense matrix for it')
+                print('Warning: layer ', l, ' cannot be made sparse, using a dense matrix for it.')
                 B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
+
     return B
 
 
@@ -171,13 +173,13 @@ def read_design_matrix(df_X, nodes, attribute=None, ego='Name'):
 
     print('Distribution of attribute {0}: '.format(attribute))
     print(np.sum(X_attr, axis=0))
+
     return X_attr
 
 
 def print_graph_stat(A):
     """
-        Print the statistics of the graph A: number of nodes, number of layers, number of edges and average degree in
-        each layer, average density, average and total number of edges.
+        Print the statistics of the graph A.
 
         Parameters
         ----------
@@ -196,7 +198,7 @@ def print_graph_stat(A):
         E = A[l].number_of_edges()
         k = 2 * float(E) / float(N)
         # density = 100 * float(E) / float(N * (N - 1))
-        print('E[', l, '] =', E, " -  <k> =", np.round(k, 2))
+        print('E[', l, '] =', E, ' -  <k> =', np.round(k, 2))
         avg_edges += E
         avg_degrees += k
     print('Average degree over all layers:', np.round(avg_degrees / L, 2))
@@ -307,7 +309,7 @@ def write_adjacency(G, folder='./', fname='adj.csv', ego='source', alter='target
     cols = [ego, alter]
     cols.extend(['L' + str(l) for l in range(1, L + 1)])
     df = pd.DataFrame(df, columns=cols)
-    df.to_csv(path_or_buf=folder + fname,index=False)
+    df.to_csv(path_or_buf=folder + fname, index=False)
     print('Adjacency tensor saved in:', folder + fname)
 
 
