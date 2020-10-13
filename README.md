@@ -6,9 +6,11 @@ Python implementation of the MTCOV algorithm described in:
 This is a new generative algorithm that incorporates both the topology of interactions and node attributes to extract overlapping communities in directed and undirected multilayer networks. 
 Implements the algorithm described in:
 
-Contisciani M.,Power E. & De Bacco C. (2020). *Community detection with node attributes in multilayer networks*, arXiv:2004.09160.
+- [1] Contisciani M.,Power E. & De Bacco C. (2020). *Community detection with node attributes in multilayer networks*,  Sci Rep **10**, 15736 (2020).  
 
-If you use this code please cite this [article](https://arxiv.org/abs/2004.09160) (_preprint_).  
+If you use this code please cite [1].   
+
+The paper can be found [here](https://www.nature.com/articles/s41598-020-72626-y) (_Published version, open access_) or [here](https://arxiv.org/abs/2004.09160) (_preprint_).  
 
 Copyright (c) 2020 [Martina Contisciani](https://www.is.mpg.de/person/mcontisciani) and [Caterina De Bacco](http://cdebacco.com).
 
