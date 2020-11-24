@@ -255,14 +255,14 @@ def probabilities(structure, sizes, N=100, C=2, avg_degree=4.):
     beta = alpha * 0.3
     p1 = avg_degree * C / N
     if structure == 'assortative':
-        p = p1 * alpha * np.ones((len(sizes), len(sizes)))  # primary-probabilities
-        np.fill_diagonal(p, p1)  # secondary-probabilities
+        p = p1 * alpha * np.ones((len(sizes), len(sizes)))  # secondary-probabilities
+        np.fill_diagonal(p, p1)  # primary-probabilities
     elif structure == 'disassortative':
         p = p1 * np.ones((len(sizes), len(sizes)))
         np.fill_diagonal(p, alpha * p1)
     elif structure == 'core-periphery':
-        p = p1 * np.ones((len(sizes), len(sizes)))  # primary-probabilities
-        np.fill_diagonal(np.fliplr(p), alpha * p1)  # secondary-probabilities
+        p = p1 * np.ones((len(sizes), len(sizes)))
+        np.fill_diagonal(np.fliplr(p), alpha * p1)
         p[1, 1] = beta * p1
     elif structure == 'directed-biased':
         p = alpha * p1 * np.ones((len(sizes), len(sizes)))
