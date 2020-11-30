@@ -26,7 +26,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - `data/output` : Contains some results for testing the code.
 
 ## Requirements
-The project have been developed using Python 3.7 with the packages contained in _requirements.txt_. It is possible to install the dependencies using pip:
+The project has been developed using Python 3.7 with the packages contained in _requirements.txt_. It is possible to install the dependencies using pip:
 `pip install -r requirements.txt`
 
 ## Test
