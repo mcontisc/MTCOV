@@ -3,9 +3,11 @@ Copyright (c) 2020 [Martina Contisciani](https://www.is.mpg.de/person/mcontiscia
 
 Implements the algorithm described in:
 
-Contisciani M.,Power E. & De Bacco C. (2020). *Community detection with node attributes in multilayer networks*, arXiv:2004.09160.
+[1] Contisciani M., Power E. & De Bacco C. (2020). *Community detection with node attributes in multilayer networks*,  Scientific Reports **10**, 15736 (2020).  
 
-If you use this code please cite this [article](https://arxiv.org/abs/2004.09160) (_preprint_).  
+If you use this code please cite [1]. 
+
+The paper can be found [here](https://www.nature.com/articles/s41598-020-72626-y) (_Published version, open access_) or [here](https://arxiv.org/abs/2004.09160) (_preprint_).  
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the 'Software'), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

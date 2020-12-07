@@ -218,7 +218,6 @@ def covariates_accuracy(X, u, v, beta, mask=None):
         -------
         acc : float
               Fraction of corrected classified examples.
-
     """
 
     true_label = extract_true_label(X, mask=mask)
@@ -271,7 +270,6 @@ def calculate_AUC(B, u, v, w, mask=None):
         -------
         AUC : float
               AUC value.
-
     """
 
     M = expected_Aija(u, v, w)
@@ -345,7 +343,6 @@ def loglikelihood(B, X, u, v, w, beta, gamma, maskG=None, maskX=None):
         -------
         loglik : float
                  Log-likelihood value.
-
     """
 
     # attribute dimension
