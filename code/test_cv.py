@@ -28,7 +28,7 @@ class Test(unittest.TestCase):
     rseed = 107261
     N_real = 1
     undirected = False
-    force_dense = True
+    # force_dense = True
     flag_conv = 'log'
     err = 0.1
     tolerance = 0.0001
@@ -79,7 +79,7 @@ class Test(unittest.TestCase):
 
             U, V, W, BETA, logL = cvfun.train_running_model(B_train, X_train, self.flag_conv,
                                                             N=self.A[0].number_of_nodes(),
-                                                            L=len(self.B),
+                                                            L=len(self.A),
                                                             C=self.C,
                                                             Z=self.X.shape[1],
                                                             gamma=self.gamma,

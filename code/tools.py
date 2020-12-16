@@ -3,11 +3,12 @@
 import pandas as pd
 import networkx as nx
 import numpy as np
+import sktensor as skt
 
 # print(nx.__version__)
 
 
-def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', egoX='Name',alter='target',
+def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', egoX='Name', alter='target',
                 attr_name='Metadata', undirected=False, force_dense=True):
     """
         Import data, i.e. the adjacency tensor and the design matrix, from a given folder.
@@ -25,7 +26,7 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
         ego : str
               Name of the column to consider as source of the edge.
         egoX : str
-              Name of the column to consider in the design matrix-attribute dataset.
+               Name of the column to consider as node IDs in the design matrix-attribute dataset.
         alter : str
                 Name of the column to consider as target of the edge.
         attr_name : str
@@ -39,10 +40,10 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
         -------
         A : list
             List of MultiGraph (or MultiDiGraph if undirected=False) NetworkX objects.
-        B : ndarray
+        B : ndarray/sptensor
             Graph adjacency tensor.
         X_attr : DataFrame
-                Pandas DataFrame object representing the one-hot encoding version of the design matrix.
+                 Pandas DataFrame object representing the one-hot encoding version of the design matrix.
         nodes : list
                 List of nodes IDs.
     """
@@ -60,8 +61,11 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
 
     nodes = list(A[0].nodes)
 
-    # save the multilayer network in a numpy tensor with all layers
-    B = build_B_from_A(A, force_dense=force_dense, nodes=nodes)
+    # save the multilayer network in a tensor with all layers
+    if force_dense:
+        B = build_B_from_A(A, nodes=nodes)
+    else:
+        B = build_sparse_B_from_A(A)
 
     # read the design matrix with covariates
     X_attr = read_design_matrix(df_X, nodes, attribute=attr_name, ego=egoX)
@@ -77,8 +81,8 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
 
         Parameters
         ----------
-        adj : DataFrame
-              Pandas DataFrame object containing the edges of the graph.
+        df_adj : DataFrame
+                 Pandas DataFrame object containing the edges of the graph.
         ego : str
               Name of the column to consider as source of the edge.
         alter : str
@@ -128,25 +132,89 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
     return A
 
 
-def build_B_from_A(A, force_dense=True, nodes=None):
+def build_B_from_A(A, nodes=None):
+    """
+        Create the numpy adjacency tensor of a networkX graph.
+
+        Parameters
+        ----------
+        A : list
+            List of MultiDiGraph NetworkX objects.
+        nodes : list
+                List of nodes IDs.
+
+        Returns
+        -------
+        B : ndarray
+            Graph adjacency tensor.
+    """
+
     N = A[0].number_of_nodes()
     if nodes is None:
         nodes = list(A[0].nodes())
     B = np.empty(shape=[len(A), N, N])
     for l in range(len(A)):
-        if force_dense:
-            B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
-        else:
-            try:
-                B[l, :, :] = nx.to_scipy_sparse_matrix(A[l], dtype=int, nodelist=nodes)  # scipy.sparse.csr_matrix(B[l,:,:])
-            except:
-                print('Warning: layer ', l, ' cannot be made sparse, using a dense matrix for it.')
-                B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
+        B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
 
     return B
 
 
+def build_sparse_B_from_A(A):
+    """
+        Create the sptensor adjacency tensor of a networkX graph.
+
+        Parameters
+        ----------
+        A : list
+            List of MultiDiGraph NetworkX objects.
+
+        Returns
+        -------
+        data : sptensor
+               Graph adjacency tensor.
+    """
+
+    N = A[0].number_of_nodes()
+    L = len(A)
+
+    d1 = np.array((), dtype='int64')
+    d2 = np.array((), dtype='int64')
+    d3 = np.array((), dtype='int64')
+    v = np.array(())
+    for l in range(L):
+        b = nx.to_scipy_sparse_matrix(A[l])
+        nz = b.nonzero()
+        d1 = np.hstack((d1, np.array([l] * len(nz[0]))))
+        d2 = np.hstack((d2, nz[0]))
+        d3 = np.hstack((d3, nz[1]))
+        v = np.hstack((v, np.array([b[i, j] for i, j in zip(*nz)])))
+    subs_ = (d1, d2, d3)
+    data = skt.sptensor(subs_, v, shape=(L, N, N), dtype=v.dtype)
+
+    return data
+
+
 def read_design_matrix(df_X, nodes, attribute=None, ego='Name'):
+    """
+        Create the design matrix with the one-hot encoding of the given attribute.
+
+        Parameters
+        ----------
+        df_X : DataFrame
+               Pandas DataFrame object containing the covariates of the nodes.
+        nodes : list
+                List of nodes IDs.
+        attribute : str
+                    Name of the attribute to consider in the analysis.
+        ego : str
+              Name of the column to consider as node IDs in the design matrix.
+
+        Returns
+        -------
+        X_attr : DataFrame
+                 Pandas DataFrame that represents the one-hot encoding version of the design matrix.
+    """
+
     X = df_X[df_X[ego].isin(nodes)]  # filter nodes
     X = X.set_index(ego).loc[nodes].reset_index()  # sort by nodes
 

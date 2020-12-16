@@ -78,7 +78,8 @@ def extract_masks(N, L, idxG=None, idxX=None, cv_type='kfold', NFold=5, fold=0, 
         for l in range(L):
             n_samples = len(idxG[l])
             test = idxG[l][fold * (n_samples // NFold):(fold + 1) * (n_samples // NFold)]
-            for idx in test: maskG[l][idx] = 1
+            for idx in test:
+                maskG[l][idx] = 1
 
         # design matrix
         testcov = idxX[fold * (N // NFold):(fold + 1) * (N // NFold)]

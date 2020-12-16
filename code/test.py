@@ -26,7 +26,7 @@ class Test(unittest.TestCase):
     rseed = 107261
     N_real = 1
     undirected = False
-    force_dense = True
+    force_dense = False
     err = 0.1
     tolerance = 0.0001
     decision = 10
@@ -39,11 +39,11 @@ class Test(unittest.TestCase):
     Import data
     '''
     A, B, X, nodes = tl.import_data(in_folder, adj_name=adj_name, cov_name=cov_name, ego=ego,
-                                    alter=alter, egoX=egoX, attr_name=attr_name)
+                                    alter=alter, egoX=egoX, attr_name=attr_name, force_dense=force_dense)
     Xs = np.array(X)
 
     MTCOV = mtcov.MTCOV(N=A[0].number_of_nodes(),  # number of nodes
-                        L=len(B),  # number of layers
+                        L=len(A),  # number of layers
                         C=C,  # number of communities
                         Z=X.shape[1],  # number of modalities of the attribute
                         gamma=gamma,  # scaling parameter gamma
@@ -64,8 +64,12 @@ class Test(unittest.TestCase):
     # test case function to check the mtcov.set_name function
     def test_import_data(self):
         print("Start import data test\n")
-        self.assertTrue(self.B.sum()>0)
-        print('B has ',self.B.sum(), ' total weight.')
+        if self.force_dense:
+            self.assertTrue(self.B.sum() > 0)
+            print('B has ', self.B.sum(), ' total weight.')
+        else:
+            self.assertTrue(self.B.vals.sum() > 0)
+            print('B has ', self.B.vals.sum(), ' total weight.')
 
     # test case function to check the Person.get_name function
     def test_running_algorithm(self):

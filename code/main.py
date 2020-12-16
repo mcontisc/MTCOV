@@ -62,7 +62,7 @@ def main():
     time_start = time.time()
 
     MTCOV = mtcov.MTCOV(N=A[0].number_of_nodes(),  # number of nodes
-                        L=len(B),  # number of layers
+                        L=len(A),  # number of layers
                         C=args.C,  # number of communities
                         Z=X.shape[1],  # number of modalities of the attribute
                         gamma=args.gamma,  # scaling parameter gamma

@@ -64,10 +64,10 @@ class MTCOV:
 
             Parameters
             ----------
-            data : ndarray
+            data : ndarray/sptensor
                    Graph adjacency tensor.
             data_X : ndarray
-                    Object representing the one-hot encoding version of the design matrix.
+                     Object representing the one-hot encoding version of the design matrix.
             flag_conv : str
                         If 'log' the convergence is based on the loglikelihood values; if 'deltas' the convergence is
                         based on the differences in the parameters values. The latter is suggested when the dataset
@@ -79,7 +79,8 @@ class MTCOV:
         maxL = -1e9  # initialization of the maximum log-likelihood
 
         # pre-processing of the data to handle the sparsity
-        data = preprocess(data)
+        if not isinstance(data, skt.sptensor):
+            data = preprocess(data)
         data_X = preprocess_X(data_X)
         
         # save the indexes of the nonzero entries
@@ -128,6 +129,7 @@ class MTCOV:
                     maxL = loglik
                     final_it = it
                     conv = convergence
+                    print(maxL)
             elif flag_conv == 'deltas':
                 self._update_optimal_parameters()
                 final_it = it
@@ -243,7 +245,7 @@ class MTCOV:
             subs_nz : tuple
                       Indices of elements of data that are non-zero.
             data_X : ndarray
-                    Object representing the one-hot encoding version of the design matrix.
+                     Object representing the one-hot encoding version of the design matrix.
             subs_X_nz : tuple
                         Indices of elements of data_X that are non-zero.
         """
@@ -607,7 +609,7 @@ class MTCOV:
             data : sptensor/dtensor
                    Graph adjacency tensor.
             data_X : ndarray
-                    Object representing the one-hot encoding version of the design matrix.
+                     Object representing the one-hot encoding version of the design matrix.
             it : int
                  Number of iteration.
             loglik : float
@@ -651,7 +653,7 @@ class MTCOV:
             data : sptensor/dtensor
                    Graph adjacency tensor.
             data_X : ndarray
-                    Object representing the one-hot encoding version of the design matrix.
+                     Object representing the one-hot encoding version of the design matrix.
 
             Returns
             -------
