@@ -227,7 +227,7 @@ class MTCOV:
         if self.out_inference:
             self.output_results(maxL, nodes, final_it)
 
-            return self.u_f, self.v_f, self.w_f, self.beta_f, maxL
+        return self.u_f, self.v_f, self.w_f, self.beta_f, maxL
 
     def _initialize(self, rng, nodes):
         """

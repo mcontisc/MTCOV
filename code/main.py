@@ -28,7 +28,7 @@ def main():
     p.add_argument('-u', '--undirected', type=bool, default=False)  # flag to call the undirected network
     p.add_argument('-F', '--flag_conv', type=str, choices=['log', 'deltas'], default='log')  # flag for convergence
     p.add_argument('-d', '--force_dense', type=bool, default=False)  # flag to force a dense transformation in input
-    p.add_argument('-b', '--batch_size', type=int, default=None)  # size of the batch to use to compute the likelihood
+    p.add_argument('-b', '--batch_size', type=int, default=None)  # size of the batch used to compute the likelihood
     args = p.parse_args()
 
     in_folder = args.in_folder
