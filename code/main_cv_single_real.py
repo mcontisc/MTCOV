@@ -167,6 +167,8 @@ def main_cv():
         if out_results:
             wrtr.writerow(comparison)
             outfile.flush()
+    if out_results:
+        outfile.close()
 
     print("\nTime elapsed:", np.round(time.time() - time_start, 2), " seconds.")
 
