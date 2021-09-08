@@ -1,5 +1,5 @@
 # MTCOV community detection
-Python implementation of the MTCOV algorithm described in:
+Python implementation of MTCOV algorithm described in:
 
 - [1] Contisciani M., Power E. & De Bacco C. (2020). *Community detection with node attributes in multilayer networks*,  Scientific Reports **10**, 15736 (2020).  
 
@@ -18,7 +18,7 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## What's included
-- `code` : Contains the Python implementation of the MTCOV algorithm, the code for performing the cross-validation procedure and the code for generating synthetic data.
+- `code` : Contains the Python implementation of MTCOV algorithm, the code for performing the cross-validation procedure and the code for generating synthetic data.
 - `data/input` : Contains an example of directed multilayer network, including the adjacency tensor and the design matrix. These are synthetic data.
 - `data/output` : Contains some results for testing the code.
 
@@ -38,6 +38,7 @@ To test the program on the given example file, type:
 It will use the sample network contained in `./data/input`. The adjacency tensor _adj.csv_ represents a directed, unweighted network with **N=300** nodes and **L=4** layers. The design matrix _X.csv_ contains the attribute _Metadata_ with **Z=2** modalities used in the analysis. The algorithm runs with **C=2** communities and **gamma=0.5**. 
 
 ### Parameters
+- **-f** : Path of the input folder, *(default='../data/input/')*.
 - **-j** : Input file name of the adjacency tensor, *(default='adj.csv')*.
 - **-c** : Input file name of the design matrix, *(default='X.csv')*.
 - **-o** : Name of the source of the edge, *(default='source')*.
@@ -48,19 +49,9 @@ It will use the sample network contained in `./data/input`. The adjacency tensor
 - **-g** : Scaling parameter gamma, *(default=0.5)*.
 - **-u** : Flag to call the undirected network, *(default=False)*.
 - **-d** : Flag to force a dense transformation of the adjacency tensor, *(default=False)*.
-- **-F** : Flag to choose the convergence procedure, *(default='log')*. If 'log' the convergence is based on the loglikelihood values; 
-            if 'deltas' the convergence is based on the differences in the parameters values. The latter is suggested 
-            when the dataset is big (N > 1000 ca.).
-- **-z** : Seed for random real numbers. 
-- **-e** : Error for the initialization of W, *(default=0.1)*.
-- **-i** : Number of iterations with different random initialization; the final parameters will be the one corresponding to the realization leading to the max likelihood, *(default=1)*.
-- **-t** : Tolerance parameter for convergence, *(default=0.0001)*.
-- **-y** : Decision variable for convergence, *(default=10)*.
-- **-m** : Maximum number of EM steps before aborting, *(default=500)*.
-- **-E** : Output file suffix, *(default='.dat')*.
-- **-I** : Path of the input folder, *(default='../data/input/')*.
-- **-O** : Path of the output folder, *(default='../data/output/')*.
-- **-A** : Flag to call the assortative network, *(default=False)*.
+- **-F** : Flag to choose the convergence procedure, *(default='log')*. If 'log' the convergence is based on the loglikelihood values; if 'deltas' the convergence is based on the differences in the parameters values. The latter is suggested when the dataset is big (N > 1000 ca.).
+- **-b** : Size of the batch used to compute the likelihood, *(default=None)*.
+
 
 ## Input format
 The multilayer network should be stored in a CSV file. An example of row is
