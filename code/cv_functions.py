@@ -99,9 +99,7 @@ def extract_masks(N, L, idxG=None, idxX=None, cv_type='kfold', NFold=5, fold=0, 
     return maskG, maskX
 
 
-def train_running_model(B_cv, X_cv, flag_conv, N, L, C, Z, gamma=0., undirected=False, cv=False, rseed=10, inf=1e10,
-                        err_max=0.0000001, err=0.1, N_real=1, tolerance=0.1, decision=10, maxit=500,
-                        folder='../data/output/5-fold_cv/', end_file='.csv', assortative=False):
+def train_running_model(B_cv, X_cv, flag_conv, C, Z, gamma=0., undirected=False, nodes=None, batch_size=None, **conf):
     """
         Run MTCOV model on the train set and return its estimated parameters: U, V, W and beta. U and V are the
         membership matrices, W is the affinity tensor and beta measures the relation between communities and attribute.
@@ -116,10 +114,6 @@ def train_running_model(B_cv, X_cv, flag_conv, N, L, C, Z, gamma=0., undirected=
                     If 'log' the convergence is based on the loglikelihood values; if 'deltas' the convergence is
                     based on the differences in the parameters values. The latter is suggested when the dataset
                     is big (N > 1000 ca.).
-        N : int
-            Number of nodes.
-        L : int
-            Number of layers.
         C : int
             Number of communities.
         Z : int
@@ -128,30 +122,10 @@ def train_running_model(B_cv, X_cv, flag_conv, N, L, C, Z, gamma=0., undirected=
                 Scaling parameter gamma.
         undirected : bool
                      If set to True, the network is undirected.
-        cv : bool
-             If set to True, it performs cross-validation procedure.
-        rseed : int
-                Random seed for the initialization.
-        inf : int
-              Initial value for log-likelihood and parameters.
-        err_max : float
-                  Minimum value for the parameters.
-        err : float
-              Error for the initialization of W.
-        N_real : int
-                 Number of iterations with different random initialization.
-        tolerance : float
-                    Tolerance parameter for convergence.
-        decision : int
-                   Convergence parameter.
-        maxit : int
-                Maximum number of EM steps before aborting.
-        folder : str
-                 Path for storing the output.
-        end_file : str
-                   Output file suffix.
-        assortative : bool
-                      If True, the network is assortative.
+        nodes : list
+                List of nodes IDs.
+        batch_size : int/None
+                     Size of the subset of nodes to compute the likelihood with.
 
         Returns
         -------
@@ -167,11 +141,9 @@ def train_running_model(B_cv, X_cv, flag_conv, N, L, C, Z, gamma=0., undirected=
                Maximum log-likelihood value.
     """
 
-    MTCOV = mtcov.MTCOV(N=N, L=L, C=C, Z=Z, gamma=gamma, undirected=undirected, cv=cv, rseed=rseed, inf=inf,
-                        err_max=err_max, err=err, N_real=N_real, tolerance=tolerance, decision=decision,
-                        maxit=maxit, folder=folder, end_file=end_file, assortative=assortative)
+    MTCOV = mtcov.MTCOV(N=len(nodes), L=B_cv.shape[0], C=C, Z=Z, gamma=gamma, undirected=undirected, **conf)
 
-    return MTCOV.fit(data=B_cv, data_X=X_cv, flag_conv=flag_conv, nodes=None)
+    return MTCOV.fit(data=B_cv, data_X=X_cv, flag_conv=flag_conv, nodes=nodes, batch_size=batch_size)
 
 
 def extract_true_label(X, mask=None):
@@ -195,6 +167,8 @@ def predict_label(X, u, v, beta, mask=None):
     else:
         probs = np.dot((u[mask > 0] + v[mask > 0]), beta) / 2
         assert (np.round(np.sum(np.sum(probs, axis=1)), 0) == u[mask > 0].shape[0])
+        # TO REMIND: when gamma=1, this assert fails because we don't update the entries of U and V that belong
+        # to the test set, because all these rows will be not in the subs (all elements are zeros)
         return [X.iloc[mask > 0].columns[el] for el in np.argmax(probs, axis=1)]
 
 

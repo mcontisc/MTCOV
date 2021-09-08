@@ -9,7 +9,7 @@ import sktensor as skt
 
 
 def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', egoX='Name', alter='target',
-                attr_name='Metadata', undirected=False, force_dense=True):
+                attr_name='Metadata', undirected=False, force_dense=True, noselfloop=True, verbose=True):
     """
         Import data, i.e. the adjacency tensor and the design matrix, from a given folder.
 
@@ -35,6 +35,10 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
                      If set to True, the algorithm considers an undirected graph.
         force_dense : bool
                       If set to True, the algorithm is forced to consider a dense adjacency tensor.
+        noselfloop : bool
+                     If set to True, the algorithm removes the self-loops.
+        verbose : bool
+                  Flag to print details.
 
         Returns
         -------
@@ -56,10 +60,13 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
     print('Indiv shape: ', df_X.shape)
 
     # create the graph adding nodes and edges
-    A = read_graph(df_adj=df_adj, ego=ego, alter=alter, undirected=undirected)
-    print_graph_stat(A)
+    A = read_graph(df_adj=df_adj, ego=ego, alter=alter, undirected=undirected, noselfloop=noselfloop, verbose=verbose)
 
     nodes = list(A[0].nodes)
+    print('\nNumber of nodes =', len(nodes))
+    print('Number of layers =', len(A))
+    if verbose:
+        print_graph_stat(A)
 
     # save the multilayer network in a tensor with all layers
     if force_dense:
@@ -68,12 +75,12 @@ def import_data(in_folder, adj_name='adj.csv', cov_name='X.csv', ego='source', e
         B = build_sparse_B_from_A(A)
 
     # read the design matrix with covariates
-    X_attr = read_design_matrix(df_X, nodes, attribute=attr_name, ego=egoX)
+    X_attr = read_design_matrix(df_X, nodes, attribute=attr_name, ego=egoX, verbose=verbose)
 
     return A, B, X_attr, nodes
 
 
-def read_graph(df_adj, ego='source', alter='target', undirected=False):
+def read_graph(df_adj, ego='source', alter='target', undirected=False, noselfloop=True, verbose=True):
     """
         Create the graph by adding edges and nodes.
 
@@ -89,6 +96,10 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
                 Name of the column to consider as target of the edge.
         undirected : bool
                      If set to True, the algorithm considers an undirected graph.
+        noselfloop : bool
+                     If set to True, the algorithm removes the self-loops.
+        verbose : bool
+                  Flag to print details.
 
         Returns
         -------
@@ -109,7 +120,8 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
     else:
         A = [nx.MultiDiGraph() for _ in range(L)]
 
-    print('Creating the network ...', end=' ')
+    if verbose:
+        print('Creating the network ...', end=' ')
     # set the same set of nodes and order over all layers
     for l in range(L):
         A[l].add_nodes_from(nodes)
@@ -120,14 +132,18 @@ def read_graph(df_adj, ego='source', alter='target', undirected=False):
         for l in range(L):
             if row[l + 2] > 0:
                 if A[l].has_edge(v1, v2):
-                    A[l][v1][v2][0]['weight'] += int(row[l + 2])  # if the edge existed already, no parallel edges created
+                    A[l][v1][v2][0]['weight'] += int(row[l + 2])  # the edge already exists -> no parallel edge create
                 else:
                     A[l].add_edge(v1, v2, weight=int(row[l + 2]))
-    print('done!')
+    if verbose:
+        print('done!')
 
     # remove self-loops
-    for l in range(L):
-        A[l].remove_edges_from(list(nx.selfloop_edges(A[l])))
+    if noselfloop:
+        if verbose:
+            print('Removing self loops')
+        for l in range(L):
+            A[l].remove_edges_from(list(nx.selfloop_edges(A[l])))
 
     return A
 
@@ -194,7 +210,7 @@ def build_sparse_B_from_A(A):
     return data
 
 
-def read_design_matrix(df_X, nodes, attribute=None, ego='Name'):
+def read_design_matrix(df_X, nodes, attribute=None, ego='Name', verbose=True):
     """
         Create the design matrix with the one-hot encoding of the given attribute.
 
@@ -208,6 +224,8 @@ def read_design_matrix(df_X, nodes, attribute=None, ego='Name'):
                     Name of the attribute to consider in the analysis.
         ego : str
               Name of the column to consider as node IDs in the design matrix.
+        verbose : bool
+                  Flag to print details.
 
         Returns
         -------
@@ -239,8 +257,9 @@ def read_design_matrix(df_X, nodes, attribute=None, ego='Name'):
             X_attr = pd.get_dummies(X[attribute])
     print('\nDesign matrix shape: ', X_attr.shape)
 
-    print('Distribution of attribute {0}: '.format(attribute))
-    print(np.sum(X_attr, axis=0))
+    if verbose:
+        print('Distribution of attribute {0}: '.format(attribute))
+        print(np.sum(X_attr, axis=0))
 
     return X_attr
 
@@ -255,23 +274,40 @@ def print_graph_stat(A):
             List of MultiGraph (or MultiDiGraph if undirected=False) NetworkX objects.
     """
 
-    L = len(A)  # number of layers
+    L = len(A)
     N = A[0].number_of_nodes()
-    avg_edges = 0
-    avg_degrees = 0
-    print('Number of nodes =', N)
-    print('Number of layers =', L)
     print('Number of edges and average degree in each layer:')
+    avg_edges = 0
+    avg_density = 0
+    avg_M = 0
+    avg_densityW = 0
+    unweighted = True
     for l in range(L):
         E = A[l].number_of_edges()
         k = 2 * float(E) / float(N)
-        # density = 100 * float(E) / float(N * (N - 1))
-        print('E[', l, '] =', E, ' -  <k> =', np.round(k, 2))
         avg_edges += E
-        avg_degrees += k
-    print('Average degree over all layers:', np.round(avg_degrees / L, 2))
-    print('Average edges over all layers:', np.round(avg_edges / L, 3))
+        avg_density += k
+        print(f'E[{l}] = {E} - <k> = {np.round(k, 3)}')
+
+        weights = [d['weight'] for u, v, d in list(A[l].edges(data=True))]
+        if not np.array_equal(weights, np.ones_like(weights)):
+            unweighted = False
+            M = np.sum([d['weight'] for u, v, d in list(A[l].edges(data=True))])
+            kW = 2 * float(M) / float(N)
+            avg_M += M
+            avg_densityW += kW
+            print(f'M[{l}] = {M} - <k_weighted> = {np.round(kW, 3)}')
+
+        print(f'Sparsity [{l}] = {np.round(E / (N * N), 3)}')
+
+    print('\nAverage edges over all layers:', np.round(avg_edges / L, 3))
+    print('Average degree over all layers:', np.round(avg_density / L, 2))
     print('Total number of edges:', avg_edges)
+    if not unweighted:
+        print('Average edges over all layers (weighted):', np.round(avg_M / L, 3))
+        print('Average degree over all layers (weighted):', np.round(avg_densityW / L, 2))
+        print('Total number of edges (weighted):', avg_M)
+    print(f'Sparsity = {np.round(avg_edges / (N * N * L), 3)}')
 
 
 def can_cast(string):

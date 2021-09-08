@@ -1,3 +1,8 @@
+"""
+    Class definition of MTCOV, the generative algorithm that incorporates both the topology of interactions and node
+    attributes to extract overlapping communities in directed and undirected multilayer networks.
+"""
+
 from __future__ import print_function
 import time
 import sys
@@ -5,31 +10,53 @@ import sktensor as skt
 import numpy as np
 import scipy.sparse
 from termcolor import colored
+import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 
 class MTCOV:
-    def __init__(self, N=100, L=1, C=2, Z=10, gamma=0.5, undirected=False, cv=False, rseed=107261, inf=1e10,
-                 err_max=0.0000001, err=0.1, N_real=1, tolerance=0.001, decision=10, maxit=500, folder='../data/output/',
-                 end_file='.dat', assortative=False):
+    def __init__(self, N=100, L=1, C=2, Z=10, gamma=0.5, undirected=False, initialization=0, rseed=0, inf=1e10,
+                 err_max=0.0000001, err=0.1, N_real=1, tolerance=0.001, decision=10, maxit=500, out_inference=False,
+                 out_folder='../data/output/', end_file='', assortative=False, verbose=False,
+                 files='../data/input/theta.npz',  plot_loglik=False):
 
-        self.N = N
-        self.L = L
-        self.C = C
-        self.Z = Z
-        self.gamma = gamma
-        self.undirected = undirected
-        self.cv = cv
-        self.rseed = rseed
-        self.inf = inf
-        self.err_max = err_max
-        self.err = err
-        self.N_real = N_real
-        self.tolerance = tolerance
-        self.decision = decision
-        self.maxit = maxit
-        self.folder = folder
-        self.end_file = end_file
-        self.assortative = assortative
+        self.N = N  # number of nodes
+        self.L = L  # number of layers
+        self.C = C  # number of communities
+        self.Z = Z  # number of categories of the categorical attribute
+        self.gamma = gamma  # scaling parameter
+        self.undirected = undirected  # flag to call the undirected network
+        self.rseed = rseed  # random seed for the initialization
+        self.inf = inf  # initial value of the pseudo log-likelihood
+        self.err_max = err_max  # minimum value for the parameters
+        self.err = err  # noise for the initialization
+        self.N_real = N_real  # number of iterations with different random initialization
+        self.tolerance = tolerance  # tolerance parameter for convergence
+        self.decision = decision  # convergence parameter
+        self.maxit = maxit  # maximum number of EM steps before aborting
+        self.out_inference = out_inference  # flag for storing the inferred parameters
+        self.out_folder = out_folder  # path for storing the output
+        self.end_file = end_file  # output file suffix
+        self.assortative = assortative  # if True, the network is assortative
+        self.verbose = verbose  # flag to print details
+        self.files = files  # path of the input file (when initialization=1)
+        self.plot_loglik = plot_loglik  # flag to plot the log-likelihood
+        if initialization not in {0, 1}:  # indicator for choosing how to initialize u, v and w
+            raise ValueError('The initialization parameter can be either 0 or 1. It is used as an indicator to '
+                             'initialize the membership matrices u and v and the affinity matrix w. If it is 0, they '
+                             'will be generated randomly, otherwise they will upload from file.')
+        self.initialization = initialization
+
+        if self.initialization == 1:
+            self.theta = np.load(self.files, allow_pickle=True)
+            dfW = self.theta['w']
+            self.L = dfW.shape[0]
+            self.C = dfW.shape[1]
+            dfU = self.theta['u']
+            self.N = dfU.shape[0]
+            dfB = self.theta['beta']
+            self.Z = dfB.shape[1]
+            assert self.C == dfU.shape[1] == dfB.shape[0]
 
         # values of the parameters used during the update
         self.u = np.zeros((self.N, self.C), dtype=float)  # out-going membership
@@ -56,7 +83,7 @@ class MTCOV:
             self.w_old = np.zeros((self.L, self.C, self.C), dtype=float)
             self.w_f = np.zeros((self.L, self.C, self.C), dtype=float)
 
-    def fit(self, data, data_X, flag_conv, nodes):
+    def fit(self, data, data_X, flag_conv, nodes, batch_size):
         """
             Performing community detection in multilayer networks considering both the topology of interactions and node
             attributes via EM updates.
@@ -74,9 +101,24 @@ class MTCOV:
                         is big (N > 1000 ca.).
             nodes : list
                     List of nodes IDs.
+            batch_size : int/None
+                         Size of the subset of nodes to compute the likelihood with.
+
+            Returns
+            -------
+            u_f : ndarray
+                  Membership matrix (out-degree).
+            v_f : ndarray
+                  Membership matrix (in-degree).
+            w_f : ndarray
+                  Affinity tensor.
+            beta_f : ndarray
+                     Beta parameter matrix.
+            maxL : float
+                   Maximum log-likelihood value.
         """
 
-        maxL = -1e9  # initialization of the maximum log-likelihood
+        maxL = -self.inf  # initialization of the maximum log-likelihood
 
         # pre-processing of the data to handle the sparsity
         if not isinstance(data, skt.sptensor):
@@ -92,9 +134,29 @@ class MTCOV:
 
         rng = np.random.RandomState(self.rseed)
 
+        if batch_size:
+            if batch_size > self.N:
+                batch_size = min(5000, self.N)
+            np.random.seed(10)
+            subset_N = np.random.choice(np.arange(self.N), size=batch_size, replace=False)
+            Subs = list(zip(*subs_nz))
+            SubsX = list(zip(*subs_X_nz))
+        else:
+            if self.N > 5000:
+                batch_size = 5000
+                np.random.seed(10)
+                subset_N = np.random.choice(np.arange(self.N), size=batch_size, replace=False)
+                Subs = list(zip(*subs_nz))
+                SubsX = list(zip(*subs_X_nz))
+            else:
+                subset_N = None
+                Subs = None
+                SubsX = None
+        print(f'batch_size: {batch_size}\n')
+
         for r in range(self.N_real):
 
-            self._initialize(rng=np.random.RandomState(self.rseed))
+            self._initialize(rng=np.random.RandomState(self.rseed), nodes=nodes)
 
             self._update_old_variables()
             self._update_cache(data, subs_nz, data_X, subs_X_nz)
@@ -105,48 +167,69 @@ class MTCOV:
             if flag_conv == 'log':
                 loglik = self.inf
 
-            print('Updating realization {0} ...'.format(r),  end=' ')
+            if self.verbose:
+                print('Updating realization {0} ...'.format(r),  end=' ')
+            loglik_values = []
             time_start = time.time()
             # --- single step iteration update ---
-            while not convergence and it < self.maxit:
+            while np.logical_and(not convergence, it < self.maxit):
                 # main EM update: updates memberships and calculates max difference new vs old
                 delta_u, delta_v, delta_w, delta_beta = self._update_em(data, data_X, subs_nz, subs_X_nz)
                 if flag_conv == 'log':
                     it, loglik, coincide, convergence = self._check_for_convergence(data, data_X, it, loglik, coincide,
-                                                                                convergence)
+                                                                                    convergence, batch_size, subset_N,
+                                                                                    Subs, SubsX)
+                    loglik_values.append(loglik)
                 elif flag_conv == 'deltas':
                     it, coincide, convergence = self._check_for_convergence_delta(it, coincide, delta_u, delta_v,
                                                                                   delta_w, delta_beta, convergence)
                 else:
                     print(colored('Error! flag_conv can be either "log" or "deltas"', 'red'))
                     break
-            print('done!')
-            print('r = {0} - iterations = {1} - time = {2} seconds'. format(r, it, np.round(time.time() - time_start, 2)))
 
             if flag_conv == 'log':
+                if maxL < loglik:
+                    self._update_optimal_parameters()
+                    best_loglik = list(loglik_values)
+                    maxL = loglik
+                    final_it = it
+                    conv = convergence
+                    best_r = r
+            elif flag_conv == 'deltas':
+                if not batch_size:
+                    loglik = self.__Likelihood(data, data_X)
+                else:
+                    loglik = self.__Likelihood_batch(data, data_X, subset_N, Subs, SubsX)
                 if maxL < loglik:
                     self._update_optimal_parameters()
                     maxL = loglik
                     final_it = it
                     conv = convergence
-                    print(maxL)
-            elif flag_conv == 'deltas':
-                self._update_optimal_parameters()
-                final_it = it
-                conv = convergence
+                    best_r = r
+            if self.verbose:
+                print(f'Nreal = {r} - Loglikelihood = {loglik} - iterations = {it} - '
+                      f'time = {np.round(time.time() - time_start, 2)} seconds')
+                # print(f'Best real = {best_r} - maxL = {maxL} - best iterations = {final_it}')
+
             self.rseed += rng.randint(10000)
-        # end cycle over realizations
+            # end cycle over realizations
 
-        if final_it == self.maxit and not conv:
+        if np.logical_and(final_it == self.maxit, not conv):
             # convergence not reaches
-            print(colored('Solution failed to converge in {0} EM steps!'.format(self.maxit), 'blue'))
+            try:
+                print(colored('Solution failed to converge in {0} EM steps!'.format(self.maxit), 'blue'))
+            except:
+                print('Solution failed to converge in {0} EM steps!'.format(self.maxit))
 
-        if self.cv:
-            return self.u_f, self.v_f, self.w_f, self.beta_f, maxL
-        else:
+        if np.logical_and(self.plot_loglik, flag_conv == 'log'):
+            plot_L(best_loglik, int_ticks=True)
+
+        if self.out_inference:
             self.output_results(maxL, nodes, final_it)
 
-    def _initialize(self, rng):
+            return self.u_f, self.v_f, self.w_f, self.beta_f, maxL
+
+    def _initialize(self, rng, nodes):
         """
             Random initialization of the parameters U, V, W, beta.
 
@@ -154,13 +237,26 @@ class MTCOV:
             ----------
             rng : RandomState
                   Container for the Mersenne Twister pseudo-random number generator.
+            nodes : list
+                    List of nodes IDs.
         """
 
-        self._randomize_u_v(rng)
-        if self.gamma != 0:
-            self._randomize_beta(rng)
-        if self.gamma != 1:
-            self._randomize_w(rng)
+        if self.initialization == 0:
+            if self.verbose:
+                print('U, V, W and beta are initialized randomly.')
+            self._randomize_u_v(rng)
+            if self.gamma != 0:
+                self._randomize_beta(rng)
+            if self.gamma != 1:
+                self._randomize_w(rng)
+
+        elif self.initialization == 1:
+            if self.verbose:
+                print(f'U, V, W and beta are initialized using the input file: {self.files}')
+            self._initialize_u(rng, nodes)
+            self._initialize_v(rng, nodes)
+            self._initialize_beta(rng)
+            self._initialize_w(rng)
 
     def _randomize_u_v(self, rng):
         """
@@ -224,15 +320,89 @@ class MTCOV:
                         else:
                             self.w[i, k, q] = self.w[i, q, k] = self.err * rng.random_sample(1)
 
+    def _initialize_u(self, rng, nodes):
+        """
+            Initialize out-going membership matrix u from file.
+
+            Parameters
+            ----------
+            rng : RandomState
+                  Container for the Mersenne Twister pseudo-random number generator.
+            nodes : list
+                    List of nodes IDs.
+        """
+
+        self.u = self.theta['u']
+        assert np.array_equal(nodes, self.theta['nodes'])
+
+        max_entry = np.max(self.u)
+        self.u += max_entry * self.err * rng.random_sample(self.u.shape)
+
+    def _initialize_v(self, rng, nodes):
+        """
+            Initialize in-coming membership matrix v from file.
+
+            Parameters
+            ----------
+            rng : RandomState
+                  Container for the Mersenne Twister pseudo-random number generator.
+            nodes : list
+                    List of nodes IDs.
+        """
+
+        if self.undirected:
+            self.v = self.u
+        else:
+            self.v = self.theta['v']
+            assert np.array_equal(nodes, self.theta['nodes'])
+
+            max_entry = np.max(self.v)
+            self.v += max_entry * self.err * rng.random_sample(self.v.shape)
+
+    def _initialize_beta(self, rng):
+        """
+            Initialize beta matrix beta from file.
+
+            Parameters
+            ----------
+            rng : RandomState
+                  Container for the Mersenne Twister pseudo-random number generator.
+        """
+
+        self.beta = self.theta['beta']
+
+        max_entry = np.max(self.beta)
+        self.beta += max_entry * self.err * rng.random_sample(self.beta.shape)
+
+    def _initialize_w(self, rng):
+        """
+            Initialize affinity tensor w from file.
+
+            Parameters
+            ----------
+            rng : RandomState
+                  Container for the Mersenne Twister pseudo-random number generator.
+        """
+
+        if self.assortative:
+            self.w = np.zeros((self.L, self.K))
+            for l in range(self.L):
+                self.w[l] = np.diag(self.w[l])[np.newaxis, :].copy()
+        else:
+            self.w = self.theta['w']
+
+        max_entry = np.max(self.w)
+        self.w += max_entry * self.err * rng.random_sample(self.w.shape)
+
     def _update_old_variables(self):
         """
             Update values of the parameters in the previous iteration.
         """
 
-        self.u_old = self.u.copy()
-        self.v_old = self.v.copy()
-        self.w_old = self.w.copy()
-        self.beta_old = self.beta.copy()
+        self.u_old[self.u > 0] = np.copy(self.u[self.u > 0])
+        self.v_old[self.v > 0] = np.copy(self.v[self.v > 0])
+        self.w_old[self.w > 0] = np.copy(self.w[self.w > 0])
+        self.beta_old[self.beta > 0] = np.copy(self.beta[self.beta > 0])
 
     def _update_cache(self, data, subs_nz, data_X, subs_X_nz):
         """
@@ -600,7 +770,7 @@ class MTCOV:
 
         return out
 
-    def _check_for_convergence(self, data, data_X, it, loglik, coincide, convergence):
+    def _check_for_convergence(self, data, data_X, it, loglik, coincide, convergence, batch_size, subset_N, Subs, SubsX):
         """
             Check for convergence by using the log-likelihood values.
 
@@ -618,6 +788,14 @@ class MTCOV:
                        Number of time the update of the log-likelihood respects the tolerance.
             convergence : bool
                           Flag for convergence.
+            batch_size : int/None
+                         Size of the subset of nodes to compute the likelihood with.
+            subset_N : list/None
+                       List with a subset of nodes.
+            Subs : list/None
+                   List with elements (a, i, j) of the non zero entries of data.
+            SubsX : list
+                    List with elements (i, z) of the non zero entries of data_X.
 
             Returns
             -------
@@ -633,7 +811,10 @@ class MTCOV:
 
         if it % 10 == 0:
             old_L = loglik
-            loglik = self.__Likelihood(data, data_X)
+            if not batch_size:
+                loglik = self.__Likelihood(data, data_X)
+            else:
+                loglik = self.__Likelihood_batch(data, data_X, subset_N, Subs, SubsX)
             if abs(loglik - old_L) < self.tolerance:
                 coincide += 1
             else:
@@ -679,6 +860,55 @@ class MTCOV:
             Xlog = data_X[data_X.nonzero()] * logP[ind_logP_nz]
         else:
             Xlog = data_X.data * logP
+        lX = Xlog.sum()
+
+        l = (1. - self.gamma) * lG + self.gamma * lX
+
+        if np.isnan(l):
+            print("Likelihood is NaN!!!!")
+            sys.exit(1)
+        else:
+            return l
+
+    def __Likelihood_batch(self, data, data_X, subset_N, Subs, SubsX):
+        """
+            Compute the log-likelihood of a batch of data.
+
+            Parameters
+            ----------
+            data : sptensor/dtensor
+                   Graph adjacency tensor.
+            data_X : ndarray
+                     Object representing the one-hot encoding version of the design matrix.
+            subset_N : list
+                       List with a subset of nodes.
+            Subs : list
+                   List with elements (a, i, j) of the non zero entries of data.
+            SubsX : list
+                    List with elements (i, z) of the non zero entries of data_X.
+
+            Returns
+            -------
+            l : float
+                Log-likelihood value.
+        """
+
+        size = len(subset_N)
+        self.lambda0_ija = self._lambda0_full(self.u[subset_N], self.v[subset_N], self.w)
+        assert self.lambda0_ija.shape == (self.L, size, size)
+        lG = -self.lambda0_ija.sum()
+        logM = np.log(self.lambda0_nz)
+        IDXs = [i for i, e in enumerate(Subs) if (e[1] in subset_N) and (e[2] in subset_N)]
+        Alog = data.vals[IDXs] * logM[IDXs]
+        lG += Alog.sum()
+
+        if self.undirected:
+            logP = np.log(self.pi0_nz)
+        else:
+            logP = np.log(0.5 * self.pi0_nz)
+        IDXs = [i for i, e in enumerate(SubsX) if (e[0] in subset_N)]
+        X_attr = scipy.sparse.csr_matrix(data_X)
+        Xlog = X_attr.data[IDXs] * logP[(IDXs, X_attr.nonzero()[1][IDXs])]
         lX = Xlog.sum()
 
         l = (1. - self.gamma) * lG + self.gamma * lX
@@ -749,7 +979,7 @@ class MTCOV:
         """
 
         if du < self.tolerance and dv < self.tolerance and dw < self.tolerance and db < self.tolerance:
-            coincide += 1
+                coincide += 1
         else:
             coincide = 0
 
@@ -783,11 +1013,11 @@ class MTCOV:
                        Total number of iterations.
         """
 
-        outinference = self.folder + 'theta' + self.end_file
-        print('Output in : ', outinference + '.npz')
-        np.savez_compressed(outinference + '.npz', u=self.u_f, v=self.v_f, w=self.w_f, beta=self.beta_f,
-                            max_it=final_it, nodes=nodes, maxL=maxL, N_real=self.N_real)
-        # to load: theta = np.load('test.npz'), e.g. print(np.array_equal(U, theta['u']))
+        outfile = self.out_folder + 'theta' + self.end_file
+        np.savez_compressed(outfile + '.npz', u=self.u_f, v=self.v_f, w=self.w_f, beta=self.beta_f,
+                            max_it=final_it, nodes=nodes, maxL=maxL)
+        print(f'Inferred parameters saved in: {outfile + ".npz"}')
+        print('To load: theta=np.load(filename), then e.g. theta["u"]')
 
 
 def sp_uttkrp(vals, subs, m, u, v, w):
@@ -904,7 +1134,7 @@ def preprocess(A):
 
     if not A.dtype == np.dtype(int).type:
         A = A.astype(int)
-    if isinstance(A, np.ndarray) and is_sparse(A):
+    if np.logical_and(isinstance(A, np.ndarray), is_sparse(A)):
         A = sptensor_from_dense_array(A)
     else:
         A = skt.dtensor(A)
@@ -976,7 +1206,28 @@ def preprocess_X(X):
 
     if not X.dtype == np.dtype(int).type:
         X = X.astype(int)
-    if isinstance(X, np.ndarray) and scipy.sparse.issparse(X):
+    if np.logical_and(isinstance(X, np.ndarray), scipy.sparse.issparse(X)):
         X = scipy.sparse.csr_matrix(X)
 
     return X
+
+
+def plot_L(values, indices=None, k_i=5, figsize=(7, 7), int_ticks=False, xlab='Iterations'):
+    """
+        Plot the log-likelihood.
+    """
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+
+    if indices is None:
+        ax.plot(values[k_i:])
+    else:
+        ax.plot(indices[k_i:], values[k_i:])
+    ax.set_xlabel(xlab)
+    ax.set_ylabel('Log-likelihood values')
+    if int_ticks:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.grid()
+
+    plt.tight_layout()
+    plt.show()

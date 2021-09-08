@@ -1,7 +1,6 @@
-
 import unittest
 import numpy as np
-import sktensor as skt
+import yaml
 import MTCOV as mtcov
 import tools as tl
 
@@ -10,8 +9,6 @@ class Test(unittest.TestCase):
     """
     The basic class that inherits unittest.TestCase
     """
-    N = 100
-    L = 4
     C = 2
     gamma = 0.5 
     in_folder = '../data/input/'
@@ -23,45 +20,25 @@ class Test(unittest.TestCase):
     alter = 'target'
     egoX = 'Name'
     attr_name = 'Metadata'
-    rseed = 107261
-    N_real = 1
     undirected = False
+    flag_conv = 'log'
     force_dense = False
-    err = 0.1
-    tolerance = 0.0001
-    decision = 10
-    maxit = 500
-    assortative = False
-    inf = 1e10
-    err_max = 0.0000001
+    batch_size = None
+
+    with open('setting_MTCOV.yaml') as f:
+        conf = yaml.load(f, Loader=yaml.FullLoader)
     
     '''
     Import data
     '''
     A, B, X, nodes = tl.import_data(in_folder, adj_name=adj_name, cov_name=cov_name, ego=ego,
-                                    alter=alter, egoX=egoX, attr_name=attr_name, force_dense=force_dense)
+                                    alter=alter, egoX=egoX, attr_name=attr_name,
+                                    undirected=undirected, force_dense=force_dense)
     Xs = np.array(X)
 
-    MTCOV = mtcov.MTCOV(N=A[0].number_of_nodes(),  # number of nodes
-                        L=len(A),  # number of layers
-                        C=C,  # number of communities
-                        Z=X.shape[1],  # number of modalities of the attribute
-                        gamma=gamma,  # scaling parameter gamma
-                        undirected=undirected,  # if True, the network is undirected
-                        rseed=rseed,  # random seed for the initialization
-                        inf=inf,  # initial value for log-likelihood and parameters
-                        err_max=err_max,  # minimum value for the parameters
-                        err=err,  # error for the initialization of W
-                        N_real=N_real,  # number of iterations with different random initialization
-                        tolerance=tolerance,  # tolerance parameter for convergence
-                        decision=decision,  # convergence parameter
-                        maxit=maxit,  # maximum number of EM steps before aborting
-                        folder=out_folder,  # path for storing the output
-                        end_file=end_file,  # output file suffix
-                        assortative=assortative  # if True, the network is assortative
-                        )
+    MTCOV = mtcov.MTCOV(N=A[0].number_of_nodes(), L=len(A), C=C, Z=X.shape[1], gamma=gamma,
+                        undirected=undirected, **conf)
 
-    # test case function to check the mtcov.set_name function
     def test_import_data(self):
         print("Start import data test\n")
         if self.force_dense:
@@ -71,14 +48,14 @@ class Test(unittest.TestCase):
             self.assertTrue(self.B.vals.sum() > 0)
             print('B has ', self.B.vals.sum(), ' total weight.')
 
-    # test case function to check the Person.get_name function
     def test_running_algorithm(self):
         print("\nStart running algorithm test\n")
 
-        _ = self.MTCOV.fit(data=self.B, data_X=self.Xs, flag_conv='log', nodes=self.nodes)
+        _ = self.MTCOV.fit(data=self.B, data_X=self.Xs, flag_conv=self.flag_conv,
+                           nodes=self.nodes, batch_size=self.batch_size)
 
-        theta = np.load(self.MTCOV.folder+'theta'+self.MTCOV.end_file+'.npz')
-        thetaGT = np.load(self.MTCOV.folder+'theta_test_GT.npz')
+        theta = np.load(self.MTCOV.out_folder+'theta'+self.MTCOV.end_file+'.npz')
+        thetaGT = np.load(self.MTCOV.out_folder+'theta_test_GT.npz')
 
         self.assertTrue(np.array_equal(self.MTCOV.u_f,theta['u']))
         self.assertTrue(np.array_equal(self.MTCOV.v_f,theta['v']))
