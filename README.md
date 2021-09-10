@@ -23,7 +23,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - `data/output` : Contains some results for testing the code.
 
 ## Requirements
-The project has been developed using Python 3.7 with the packages contained in _requirements.txt_. It is possible to install the dependencies using pip:
+The project has been developed using Python 3.7 with the packages contained in *requirements.txt*. We suggest to create a conda environment with
+`conda create --name MTCOV python=3.7.9 --no-default-packages`, activate it with `conda activate MTCOV`, and install all the dependencies by running (inside `MTCOV` directory):
+
 `pip install -r requirements.txt`
 
 ## Test
