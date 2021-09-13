@@ -385,7 +385,7 @@ class MTCOV:
         """
 
         if self.assortative:
-            self.w = np.zeros((self.L, self.K))
+            self.w = np.zeros((self.L, self.C))
             for l in range(self.L):
                 self.w[l] = np.diag(self.w[l])[np.newaxis, :].copy()
         else:
