@@ -238,23 +238,8 @@ def read_design_matrix(df_X, nodes, attribute=None, ego='Name', verbose=True):
 
     if attribute is None:
         X_attr = pd.get_dummies(X.iloc[:, 1])  # gets the first columns after the ego
-    else:
-        if 'CasteAge' in attribute:  # use two attributes and one is binned
-            print("Using CasteAGe")
-            ageyear = attribute.split('Caste')[-1]  # extract the age_year from e.g. 'CasteAge_2013'
-            bins = [X[ageyear].min()-1+i*5 for i in range(20) if X[ageyear].min()-1+i*5-5 <= X[ageyear].max()]
-            labels = ['b'+str(i) for i in range(len(bins)-1)]
-            X.loc[:, ageyear+'_bin'] = pd.cut(X[ageyear], bins=bins, labels=labels)
-            d = [r['Caste']+'_'+r[ageyear+'_bin'] for i, r in X.iterrows()]
-            X.loc[:, attribute] = d
-        elif 'Age' in attribute:  # use one binned attribute
-            bins = [X[attribute].min()-1+i*5 for i in range(20) if X[attribute].min()-1+i*5-5 <= X[attribute].max()]
-            labels = ['b'+str(i) for i in range(len(bins)-1)]
-            X_attr = pd.cut(X[attribute], bins=bins, labels=labels)
-            X_attr = pd.get_dummies(X_attr)
-            assert X_attr.sum(axis=1).sum() == len(X)
-        else:  # use one attribute as it is (not binned)
-            X_attr = pd.get_dummies(X[attribute])
+    else:  # use one attribute as it is
+        X_attr = pd.get_dummies(X[attribute])
     print('\nDesign matrix shape: ', X_attr.shape)
 
     if verbose:
