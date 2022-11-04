@@ -53,7 +53,7 @@ It will use the sample network contained in `./data/input`. The adjacency tensor
 - **-b** : Size of the batch used to compute the likelihood, *(default=None)*.
 
 ## Input format
-The multilayer network should be stored in a CSV file. An example of row is
+The **multilayer network (A)** should be stored in a CSV file. An example of row is
 
 `node1 node2 0 0 1`
 
@@ -61,7 +61,7 @@ where the first and second columns are the _source_ and _target_ nodes of the ed
 
 Note: if the network is undirected, you only need to input each edge once. You then need to specify to the algorithm that you are considering the undirected case by giving as a command line input parameter **-u=True**. 
 
-The design matrix should be stored in a CSV file, where one column (_Name_) indicates the node labels. 
+The **design matrix (X)** should be stored in a CSV file, where one column (_Name_) indicates the node labels. 
 
 ## Output
 The MTCOV returns a compressed file inside the `./data/output/test` folder. To load and print the out-going membership matrix:
