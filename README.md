@@ -23,8 +23,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 - `data/output` : Contains some results for testing the code.
 
 ## Requirements
-The project has been developed using Python 3.7 with the packages contained in *requirements.txt*. We suggest to create a conda environment with
-`conda create --name MTCOV python=3.7.9 --no-default-packages`, activate it with `conda activate MTCOV`, and install all the dependencies by running (inside `MTCOV` directory):
+The project has been developed using Python with the packages contained in *requirements.txt*. We suggest to create a conda environment with
+`conda create --name MTCOV python=3.9.16 --no-default-packages`, activate it with `conda activate MTCOV`, and install all the dependencies by running (inside `MTCOV` directory):
 
 `pip install -r requirements.txt`
 
@@ -37,7 +37,7 @@ To test the program on the given example file, type:
 `cd code`   
 `python main.py`
 
-It will use the sample network contained in `./data/input`. The adjacency tensor _adj.csv_ represents a directed, unweighted network with **N=300** nodes and **L=4** layers. The design matrix _X.csv_ contains the attribute _Metadata_ with **Z=2** modalities used in the analysis. The algorithm runs with **C=2** communities and **gamma=0.5**. 
+It will use the sample network contained in `./data/input`. The adjacency tensor _adj.csv_ represents a directed, unweighted network with **N=300** nodes and **L=4** layers. The design matrix _X.csv_ contains the attribute _Metadata_ with **Z=2** categories used in the analysis. The algorithm runs with **C=2** communities and **gamma=0.5**. 
 
 ### Parameters
 - **-f** : Path of the input folder, *(default='../data/input/')*.
@@ -60,7 +60,7 @@ The **multilayer network (A)** should be stored in a CSV file. An example of row
 
 `node1 node2 0 0 1`
 
-where the first and second columns are the _source_ and _target_ nodes of the edge, respectively; l+2 column tells if there is that edge in the l-th layer and the weight. In this example the edge node1 --> node2 exists in layer 3 with weight 1, but not in layer 1 and 2.
+where the first and second columns are the _source_ and _target_ nodes of the edge, respectively; $\ell + 2$ column tells if there is that edge in the $\ell-$th layer and the weight. In this example the edge node1 --> node2 exists in layer 3 with weight 1, but not in layer 1 and 2.
 
 Note: if the network is undirected, you only need to input each edge once. You then need to specify to the algorithm that you are considering the undirected case by giving as a command line input parameter **-u=True**. 
 
@@ -72,4 +72,4 @@ The MTCOV returns a compressed file inside the `data/output/test` folder. To loa
 `theta = np.load('theta_test_GT.npz')`.      
 `print(theta['u'])`
 
-*theta* contains the two NxC membership matrices **U** *('u')* and **V** *('v')*, the LxCxC affinity tensor **W** *('w')*, the CxZ matrix **beta** *('beta')*, the total number of iterations *('max_it')*, the nodes of the network *('nodes')*, the value of the maximum likelihood *('maxL')* and the number of realizations *('N_real')*. 
+*theta* contains the two $N\times C$ membership matrices **U** *('u')* and **V** *('v')*, the $L\times C\times C$ affinity tensor **W** *('w')*, the $C\times Z$ matrix **beta** *('beta')*, the total number of iterations *('max_it')*, the nodes of the network *('nodes')*, the value of the maximum likelihood *('maxL')* and the number of realizations *('N_real')*. 

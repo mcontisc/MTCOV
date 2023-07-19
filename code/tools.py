@@ -170,7 +170,7 @@ def build_B_from_A(A, nodes=None):
         nodes = list(A[0].nodes())
     B = np.empty(shape=[len(A), N, N])
     for l in range(len(A)):
-        B[l, :, :] = nx.to_numpy_matrix(A[l], weight='weight', dtype=int, nodelist=nodes)
+        B[l, :, :] = nx.to_numpy_array(A[l], weight='weight', dtype=int, nodelist=nodes)
 
     return B
 
@@ -198,7 +198,7 @@ def build_sparse_B_from_A(A):
     d3 = np.array((), dtype='int64')
     v = np.array(())
     for l in range(L):
-        b = nx.to_scipy_sparse_matrix(A[l])
+        b = nx.to_scipy_sparse_array(A[l])
         nz = b.nonzero()
         d1 = np.hstack((d1, np.array([l] * len(nz[0]))))
         d2 = np.hstack((d2, nz[0]))
@@ -384,7 +384,7 @@ def write_adjacency(G, folder='./', fname='adj.csv', ego='source', alter='target
     L = len(G)
     B = np.empty(shape=[len(G), N, N])
     for l in range(len(G)):
-        B[l, :, :] = nx.to_numpy_matrix(G[l], weight='weight')
+        B[l, :, :] = nx.to_numpy_array(G[l], weight='weight')
     df = []
     for i in range(N):
         for j in range(N):

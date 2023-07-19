@@ -1,7 +1,7 @@
 numpy==1.22.0
 pandas
 matplotlib
-sklearn
+scikit-learn
 scikit-tensor-py3
 scipy==1.10.0
 networkx
